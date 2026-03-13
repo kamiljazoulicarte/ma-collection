@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <!-- 📌 DÉFI 1 — Change le titre de l'onglet ! C'est le texte visible dans l'onglet du navigateur. Cherche "La Collection de Kamil" juste en dessous et remplace-le par ce que tu veux ! -->
-  <title>les collectors de Kamil et Ali ✨</title>
+  <title>La Collection de Kamil ✨</title>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
     /* 📌 DÉFI 2 — Change les couleurs du site ! Chaque ligne ci-dessous est une couleur utilisée partout. Modifie un code (#FFD93D par exemple) et sauvegarde pour voir le changement. Va sur htmlcolorcodes.com pour trouver des codes couleur. */
@@ -14,8 +14,8 @@
       --orange: #FF6B35;
       --bleu:   #4ECDC4;
       --violet: #A855F7;
-      --rose:   #eb1532f3;   #632a1f6d;   #632a1f6d;
-      --fond:   #0a1628;       ← essaie #0a1628 pour du bleu nuit ! */
+      --rose:   #FF6B9D;
+      --fond:   #1a1033;   /* ← essaie #0a1628 pour du bleu nuit ! */
       --rouge:  #ef4444;
     }
     * { margin:0; padding:0; box-sizing:border-box; }
@@ -161,9 +161,9 @@
   -->
   <header>
     <span class="couronne">👑</span>                   <!-- ← change l'emoji ! -->
-    <h1>Les Collectors de</h1>
-    <span class="prenom">Kamil et Ali</span>                  <!-- ← ton prénom -->
-    <p class="sous-titre">✨ Toutes nos super cartes ✨</p>  <!-- ← change ce texte ! -->
+    <h1>La Collection de</h1>
+    <span class="prenom">Kamil</span>                  <!-- ← ton prénom -->
+    <p class="sous-titre">✨ Toutes mes cartes ✨</p>  <!-- ← change ce texte ! -->
   </header>
 
   <!-- 🔒 Bandeau visible uniquement quand tu es connecté -->
@@ -252,8 +252,8 @@
         </select>
       </div>
       <div class="champ">
-        <label>Série / Collection</label>
-        <input type="text" id="serieCarte" placeholder="Ex: Scarlet & Violet, FIFA 2025...">
+        <label>Série / Prix</label>
+        <input type="text" id="serieCarte">
       </div>
       <div class="champ">
         <label>📸 Photo de la carte</label>
@@ -318,8 +318,8 @@
     let cartes           = JSON.parse(localStorage.getItem('kamil_cartes') || '[]');
     let filtreCourant    = 'all';
     let emojiSelectionne = '⚡';
-    let photoBase64      = null;
-    let estAdmin         = false;   // false = visiteur, true = Kamil connecté
+    let photoBase64      = null;   // contiendra l'URL Cloudinary (ou null si pas de photo)
+    let estAdmin         = false;
 
     // ── Étoiles (créées par le code) ──────────────────────────
     // On crée 120 étoiles placées aléatoirement sur la page
@@ -407,25 +407,94 @@
       rare:    `url("data:image/svg+xml,%3Csvg width='20' height='20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpolygon points='10,2 12,8 18,8 13,12 15,18 10,14 5,18 7,12 2,8 8,8' fill='%23a855f7'/%3E%3C/svg%3E")`
     };
 
-    // ── Photo ─────────────────────────────────────────────────
-    // FileReader lit la photo et la convertit en texte base64
-    function chargerPhoto(input) {
+    // ════════════════════════════════════════════════════════════
+    // ☁️ CLOUDINARY — STOCKAGE DES PHOTOS EN LIGNE
+    //
+    // 📌 Indication pour configurer Cloudinary :
+    //    Il y a 2 valeurs à changer ci-dessous :
+    //
+    //    1. CLOUD_NAME → ton "Cloud name" sur le dashboard Cloudinary
+    //       Exemple : si ton Cloud name est "dxyz123abc", écris "dxyz123abc"
+    //
+    //    2. UPLOAD_PRESET → le nom du preset que tu as créé
+    //       Si tu as suivi le guide et mis "kamil-cartes", laisse tel quel !
+    //
+    //    C'est tout ! Ces 2 valeurs suffisent pour que les photos
+    //    soient uploadées sur internet et visibles par tout le monde.
+    //
+    // 🎓 Ce que tu apprends ici :
+    //    Une "API" c'est un service externe qu'on utilise depuis son code.
+    //    Ici on envoie la photo à Cloudinary (fetch = envoyer une requête)
+    //    et Cloudinary nous renvoie une URL (adresse internet) de la photo.
+    //    On stocke cette URL dans la carte — plus besoin de stocker la photo !
+    // ════════════════════════════════════════════════════════════
+    const CLOUD_NAME    = "djqeuqkrz";    // ← remplace par ton Cloud name !
+    const UPLOAD_PRESET = "kamil-cartes";       // ← le nom de ton upload preset
+
+    // ── Photo — upload vers Cloudinary ───────────────────────
+    async function chargerPhoto(input) {
       if (!input.files || !input.files[0]) return;
-      const lecteur = new FileReader();
-      lecteur.onload = (e) => {
-        photoBase64 = e.target.result;
+
+      // On affiche un indicateur de chargement pendant l'upload
+      const zone = document.getElementById('zoneUpload');
+      zone.innerHTML = `
+        <span class="upload-icone">⏳</span>
+        <p class="upload-texte">Upload en cours...</p>
+      `;
+
+      /*
+        On crée un "FormData" — c'est une enveloppe qui contient
+        le fichier photo + les infos Cloudinary nécessaires.
+        C'est comme remplir un formulaire d'envoi de colis !
+      */
+      const formData = new FormData();
+      formData.append('file', input.files[0]);
+      formData.append('upload_preset', UPLOAD_PRESET);
+
+      try {
+        /*
+          "fetch" envoie la photo vers Cloudinary sur internet.
+          "await" veut dire "attends que Cloudinary réponde avant de continuer".
+          C'est ce qu'on appelle une requête "asynchrone".
+        */
+        const reponse = await fetch(
+          `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
+          { method: 'POST', body: formData }
+        );
+        const resultat = await reponse.json();
+
+        /*
+          Cloudinary nous renvoie une URL sécurisée (secure_url).
+          C'est l'adresse internet de la photo, visible par tout le monde !
+          On la stocke dans photoBase64 (même variable, nouveau contenu).
+        */
+        photoBase64 = resultat.secure_url;
         document.getElementById('imgApercu').src = photoBase64;
         document.getElementById('apercu').style.display = 'block';
-        document.getElementById('zoneUpload').style.display = 'none';
-      };
-      lecteur.readAsDataURL(input.files[0]);
+        zone.style.display = 'none';
+
+      } catch (erreur) {
+        // Si l'upload échoue, on affiche un message et on remet la zone
+        zone.innerHTML = `
+          <input type="file" id="inputPhoto" accept="image/*" onchange="chargerPhoto(this)">
+          <span class="upload-icone">📷</span>
+          <p class="upload-texte">❌ Erreur — vérifie ton Cloud name<br><span>Réessaie !</span></p>
+        `;
+        console.error('Erreur Cloudinary:', erreur);
+      }
     }
 
     function supprimerPhoto() {
       photoBase64 = null;
       document.getElementById('inputPhoto').value = '';
       document.getElementById('apercu').style.display = 'none';
-      document.getElementById('zoneUpload').style.display = 'block';
+      const zone = document.getElementById('zoneUpload');
+      zone.style.display = 'block';
+      zone.innerHTML = `
+        <input type="file" id="inputPhoto" accept="image/*" onchange="chargerPhoto(this)">
+        <span class="upload-icone">📷</span>
+        <p class="upload-texte">Clique ou glisse une photo<br><span>JPG, PNG, WEBP...</span></p>
+      `;
     }
 
     // ── Sélecteur d'emojis ────────────────────────────────────
