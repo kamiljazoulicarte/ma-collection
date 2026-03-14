@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <!-- 📌 DÉFI 1 — Change le titre de l'onglet ! C'est le texte visible dans l'onglet du navigateur. Cherche "La Collection de Kamil" juste en dessous et remplace-le par ce que tu veux ! -->
-  <title>Les collectors de Kamil & Ali ✨</title>
+  <title>La Collection de Kamil ✨</title>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
     /* 📌 DÉFI 2 — Change les couleurs du site ! Chaque ligne ci-dessous est une couleur utilisée partout. Modifie un code (#FFD93D par exemple) et sauvegarde pour voir le changement. Va sur htmlcolorcodes.com pour trouver des codes couleur. */
@@ -161,9 +161,9 @@
   -->
   <header>
     <span class="couronne">👑</span>                   <!-- ← change l'emoji ! -->
-    <h1>Les Collectors de</h1>
-    <span class="prenom">Kamil & Ali</span>                  <!-- ← ton prénom -->
-    <p class="sous-titre">✨ Toutes nos cartes ✨</p>  <!-- ← change ce texte ! -->
+    <h1>La Collection de</h1>
+    <span class="prenom">Kamil</span>                  <!-- ← ton prénom -->
+    <p class="sous-titre">✨ Toutes mes cartes ✨</p>  <!-- ← change ce texte ! -->
   </header>
 
   <!-- 🔒 Bandeau visible uniquement quand tu es connecté -->
@@ -252,8 +252,8 @@
         </select>
       </div>
       <div class="champ">
-        <label>Prix</label>
-        <input type="text" id="serieCarte">
+        <label>Série / Collection</label>
+        <input type="text" id="serieCarte" placeholder="Ex: Scarlet & Violet, FIFA 2025...">
       </div>
       <div class="champ">
         <label>📸 Photo de la carte</label>
@@ -313,12 +313,45 @@
     // ════════════════════════════════════════════════════════════
     const MOT_DE_PASSE_ADMIN = "pokemon11";   // ← change ici !
 
+    // ════════════════════════════════════════════════════════════
+    // 🗃️ SUPABASE — BASE DE DONNÉES EN LIGNE
+    //
+    // 📌 Ces 2 valeurs connectent le site à ta base de données.
+    //    Elles sont déjà remplies — ne les change pas !
+    //
+    // 🎓 Ce que tu apprends ici :
+    //    Supabase est une base de données sur internet.
+    //    Au lieu de sauvegarder dans le navigateur (localStorage),
+    //    on envoie les cartes sur Supabase.
+    //    N'importe quel appareil voit la même collection ! 🌍
+    // ════════════════════════════════════════════════════════════
+    const SUPABASE_URL = "https://zfbpdrilnmmytyraymnk.supabase.co";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpmYnBkcmlsbm1teXR5cmF5bW5rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0NDE2OTksImV4cCI6MjA4OTAxNzY5OX0.WuEhklDGnmfJ_OT05-h9FZr2Rll5vbc_EE17t69_9sc";
+
+    // Fonction utilitaire pour appeler Supabase
+    // 🎓 "headers" = en-têtes de la requête, comme l'adresse sur une enveloppe
+    async function supabase(methode, data = null, id = null) {
+      const url = `${SUPABASE_URL}/rest/v1/cartes${id ? `?id=eq.${id}` : ''}`;
+      const options = {
+        method: methode,
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': 'application/json',
+          'Prefer': methode === 'POST' ? 'return=representation' : ''
+        }
+      };
+      if (data) options.body = JSON.stringify(data);
+      const res = await fetch(url, options);
+      if (methode === 'DELETE') return;
+      return res.json();
+    }
+
     // ── Variables globales ────────────────────────────────────
-    // localStorage = mémoire du navigateur (garde les cartes même après fermeture)
-    let cartes           = JSON.parse(localStorage.getItem('kamil_cartes') || '[]');
+    let cartes           = [];     // rempli depuis Supabase au chargement
     let filtreCourant    = 'all';
     let emojiSelectionne = '⚡';
-    let photoBase64      = null;   // contiendra l'URL Cloudinary (ou null si pas de photo)
+    let photoBase64      = null;   // contiendra l'URL Cloudinary
     let estAdmin         = false;
 
     // ── Étoiles (créées par le code) ──────────────────────────
@@ -428,7 +461,7 @@
     //    et Cloudinary nous renvoie une URL (adresse internet) de la photo.
     //    On stocke cette URL dans la carte — plus besoin de stocker la photo !
     // ════════════════════════════════════════════════════════════
-    const CLOUD_NAME    = "djqeuqkrz";    // ← remplace par ton Cloud name !
+    const CLOUD_NAME    = "TON_CLOUD_NAME";    // ← remplace par ton Cloud name !
     const UPLOAD_PRESET = "kamil-cartes";       // ← le nom de ton upload preset
 
     // ── Photo — upload vers Cloudinary ───────────────────────
@@ -563,12 +596,18 @@
           </div>
         `;
 
-        div.querySelector('.btn-supprimer').onclick = (e) => {
+        div.querySelector('.btn-supprimer').onclick = async (e) => {
           e.stopPropagation();
-          if (!estAdmin) return;   // sécurité supplémentaire
+          if (!estAdmin) return;
           if (confirm(`Supprimer "${carte.nom}" ?`)) {
+            /*
+              DELETE = "supprime cet enregistrement dans la base".
+              On utilise l'ID unique de la carte pour dire à Supabase
+              exactement quelle carte supprimer.
+            */
+            await supabase('DELETE', null, carte.id);
             cartes.splice(cartes.indexOf(carte), 1);
-            sauvegarderEtAfficher();
+            afficherCartes();
           }
         };
 
@@ -593,9 +632,18 @@
       document.getElementById('statRare').textContent   = cartes.filter(c => c.cat === 'rare').length;
     }
 
-    // ── Sauvegarde ────────────────────────────────────────────
-    function sauvegarderEtAfficher() {
-      localStorage.setItem('kamil_cartes', JSON.stringify(cartes));
+    // ── Sauvegarde sur Supabase ───────────────────────────────
+    // 🎓 "async" = cette fonction fait des opérations qui prennent du temps (internet)
+    async function sauvegarderEtAfficher(nouvelleCarte) {
+      /*
+        On envoie la nouvelle carte à Supabase avec la méthode POST.
+        POST = "j'envoie de nouvelles données" (comme poster une lettre !)
+        Supabase nous renvoie la carte avec son ID unique généré automatiquement.
+      */
+      const result = await supabase('POST', nouvelleCarte);
+      if (result && result[0]) {
+        cartes.push(result[0]);   // on ajoute la carte avec son vrai ID Supabase
+      }
       afficherCartes();
     }
 
@@ -624,23 +672,23 @@
       document.getElementById('modalAjout').classList.remove('ouvert');
     }
 
-    function ajouterCarte() {
+    async function ajouterCarte() {
       if (!estAdmin) return;
       const nom = document.getElementById('nomCarte').value.trim();
       if (!nom) { document.getElementById('nomCarte').focus(); return; }
 
-      // On crée un objet avec toutes les infos de la carte
-      cartes.push({
+      // On crée l'objet carte à envoyer à Supabase
+      const nouvelleCarte = {
         nom,
         cat:     document.getElementById('catCarte').value,
         serie:   document.getElementById('serieCarte').value.trim(),
         etoiles: parseInt(document.getElementById('noteCarte').value),
         emoji:   emojiSelectionne,
         photo:   photoBase64 || null
-      });
+      };
 
       fermerAjout();
-      sauvegarderEtAfficher();
+      await sauvegarderEtAfficher(nouvelleCarte);
     }
 
     // Fermeture des modales (clic sur fond ou touche Échap)
@@ -651,9 +699,22 @@
     });
 
     // ── Initialisation ────────────────────────────────────────
-    // Ces deux lignes s'exécutent au chargement de la page
-    construireEmojis('pokemon');
-    afficherCartes();
+    // 🎓 "async" ici aussi car on attend que Supabase réponde
+    async function init() {
+      construireEmojis('pokemon');
+      /*
+        On charge toutes les cartes depuis Supabase au démarrage.
+        GET = "donne-moi les données" (comme recevoir une lettre !)
+        "order=created_at.asc" = du plus ancien au plus récent
+      */
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/cartes?order=created_at.asc`,
+        { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
+      );
+      cartes = await res.json();
+      afficherCartes();
+    }
+    init();
 
   </script>
 
