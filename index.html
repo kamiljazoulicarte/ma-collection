@@ -461,7 +461,7 @@
     //    et Cloudinary nous renvoie une URL (adresse internet) de la photo.
     //    On stocke cette URL dans la carte — plus besoin de stocker la photo !
     // ════════════════════════════════════════════════════════════
-    const CLOUD_NAME    = "TON_CLOUD_NAME";    // ← remplace par ton Cloud name !
+    const CLOUD_NAME    = "djqeuqkrz";    // ← remplace par ton Cloud name !
     const UPLOAD_PRESET = "kamil-cartes";       // ← le nom de ton upload preset
 
     // ── Photo — upload vers Cloudinary ───────────────────────
@@ -519,8 +519,7 @@
 
     function supprimerPhoto() {
       photoBase64 = null;
-      document.getElementById('inputPhoto').value = '';
-      document.getElementById('apercu').style.display = 'none';
+      // On recrée proprement la zone upload avec le input file
       const zone = document.getElementById('zoneUpload');
       zone.style.display = 'block';
       zone.innerHTML = `
@@ -528,6 +527,7 @@
         <span class="upload-icone">📷</span>
         <p class="upload-texte">Clique ou glisse une photo<br><span>JPG, PNG, WEBP...</span></p>
       `;
+      document.getElementById('apercu').style.display = 'none';
     }
 
     // ── Sélecteur d'emojis ────────────────────────────────────
